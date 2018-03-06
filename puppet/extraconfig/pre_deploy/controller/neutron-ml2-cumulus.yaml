@@ -1,0 +1,70 @@
+heat_template_version: 2015-04-30
+
+description: Configure hieradata for Cumulus
+
+parameters:
+  server:
+    description: ID of the controller node to apply this config to
+    type: string
+  # Config specific parameters, to be provided via parameter_defaults
+  CumulusML2Switches:
+    type: comma_delimited_list
+    default: []
+  CumulusML2Scheme:
+    type: string
+    default: 'http'
+  CumulusML2Port:
+    type: number
+    default: 8000
+  CumulusML2SyncTime:
+    type: number
+    default: 0
+  CumulusML2SPFEnable:
+    type: boolean
+    default: true
+  CumulusML2NewBridge:
+    type: boolean
+    default: true
+
+resources:
+  CumulusConfig:
+    type: OS::Heat::StructuredConfig
+    properties:
+      group: os-apply-config
+      options:
+        enable_hiera: True
+        enable_facter: True
+      config:
+        hiera:
+          datafiles:
+            cumulus_data:
+              mapped_data:
+                neutron::plugins::ml2::cumulus::switches: {get_input: cumulus_switches}
+                neutron::plugins::ml2::cumulus::scheme: {get_input: cumulus_scheme}
+                neutron::plugins::ml2::cumulus::protocol_port: {get_input: cumulus_protocol_port}
+                neutron::plugins::ml2::cumulus::sync_time: {get_input: cumulus_sync_time}
+                neutron::plugins::ml2::cumulus::spf_enable: {get_input: cumulus_spf_enable}
+                neutron::plugins::ml2::cumulus::new_bridge: {get_input: cumulus_new_bridge}
+
+
+  CumulusDeployment:
+    type: OS::Heat::StructuredDeployment
+    properties:
+      name: CumulusDeployment
+      config: {get_resource: CumulusConfig}
+      server: {get_param: server}
+      input_values:
+        cumulus_switches: {get_param: CumulusML2Switches}
+        cumulus_scheme: {get_param: CumulusML2Scheme}
+        cumulus_protocol_port: {get_param: CumulusML2Port}
+        cumulus_sync_time: {get_param: CumulusML2SyncTime}
+        cumulus_spf_enable: {get_param: CumulusML2SPFEnable}
+        cumulus_new_bridge: {get_param: CumulusML2NewBridge}
+      actions: ['CREATE', 'UPDATE']
+
+
+outputs:
+  deploy_stdout:
+    description: Deployment reference, used to trigger puppet apply on changes
+    value: {get_attr: [CumulusDeployment, deploy_stdout]}
+  
